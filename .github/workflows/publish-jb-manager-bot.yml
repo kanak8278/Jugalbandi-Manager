@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/jb-manager-bot 
+      url: https://test.pypi.org/manage/project/jb-manager-bot/ 
     permissions:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
 
