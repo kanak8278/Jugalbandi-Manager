@@ -1,6 +1,4 @@
-# This workflow will upload jb-manager-bot package when a release is created
-
-name: Publish JBManagerBot to Pypi
+name: Publish JBManagerBot to TestPyPI
 
 on:
   release:
@@ -11,10 +9,9 @@ permissions:
 
 jobs:
   deploy:
-
     runs-on: ubuntu-latest
     environment:
-      name: pypi
+      name: testpypi
       url: https://test.pypi.org/manage/project/jb-manager-bot/ 
     permissions:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
@@ -35,5 +32,8 @@ jobs:
     - name: Build
       working-directory: ./jb-manager-bot
       run: poetry build
-    - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
+    - name: Publish to TestPyPI
+      env:
+        TWINE_USERNAME: ${{ secrets.TEST_PYPI_USERNAME }}
+        TWINE_PASSWORD: ${{ secrets.TEST_PYPI_PASSWORD }}
+      run: poetry publish -r testpypi --username $TWINE_USERNAME --password $TWINE_PASSWORD
