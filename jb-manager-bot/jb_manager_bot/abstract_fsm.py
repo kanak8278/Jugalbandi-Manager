@@ -246,8 +246,10 @@ class AbstractFSM(ABC):
         else:
             fsm = cls.get_machine(send_message=send_message, credentials=credentials)
         fsm.initialise(**kwargs)
-        fsm.submit_callback(callback_input)
-        fsm.submit_input(user_input)
+        if callback_input:
+            fsm.submit_callback(callback_input)
+        if user_input:
+            fsm.submit_input(user_input)
         fsm.run()
 
         if fsm.status == Status.END:
