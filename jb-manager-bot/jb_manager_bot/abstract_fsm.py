@@ -72,6 +72,9 @@ class AbstractFSM(ABC):
     def initialise(self, **kwargs):
         """Method to initialise the FSM config."""
         for key, value in kwargs.items():
+            self.variables = (
+                self.variables if hasattr(self, "variables") else self.variable_names()
+            )
             setattr(
                 self.variables, key, value
             )  # Use setattr to set Pydantic model attributes
@@ -235,6 +238,10 @@ class AbstractFSM(ABC):
     ) -> Dict[str, Any]:
         """
         Method to run the FSM."""
+        print("="*20)
+        print("Starting Abstract FSM")
+        print(credentials)
+        print(state)
         if state:
             fsm = cls.get_machine(
                 send_message=send_message,
@@ -247,8 +254,10 @@ class AbstractFSM(ABC):
         else:
             fsm = cls.get_machine(send_message=send_message, credentials=credentials)
         fsm.initialise(**kwargs)
-        fsm.submit_callback(callback_input)
-        fsm.submit_input(user_input)
+        if callback_input is not None:
+            fsm.submit_callback(callback_input)
+        if user_input is not None:
+            fsm.submit_input(user_input)
         fsm.run()
 
         if fsm.status == Status.END:
@@ -427,7 +436,7 @@ class AbstractFSM(ABC):
         setattr(self.__class__, fn_name, dynamic_fn)
 
     def _on_enter_input_logic(
-        self, write_var, options=None, message=None, validation=None
+        self, write_var, options=None, message=None, validation=None, should_validate=True
     ):
         self.status = Status.WAIT_FOR_ME
         if options:
@@ -438,16 +447,22 @@ class AbstractFSM(ABC):
             ]
         else:
             task = f"This is the question being asked to the user: {message}. This is validation that the variable need to pass {validation}. Format and modify the user input into the format requied and if you could not be decide return None. Based on the user's input, return the output in json format: {{'result': <input>}}"
-        result = Parser.parse_user_input(
-            task,
-            options,
-            self.current_input,
-            azure_endpoint=self.credentials["AZURE_OPENAI_API_ENDPOINT"],
-            azure_openai_api_key=self.credentials["AZURE_OPENAI_API_KEY"],
-            azure_openai_api_version=self.credentials["AZURE_OPENAI_API_VERSION"],
-            openai_api_key=self.credentials["OPENAI_API_KEY"],
-            model=self.credentials["FAST_MODEL"],
-        )
+        if should_validate:
+            result = Parser.parse_user_input(
+                task,
+                options,
+                self.current_input,
+                azure_endpoint=self.credentials.get("AZURE_OPENAI_API_ENDPOINT"),
+                azure_openai_api_key=self.credentials.get("AZURE_OPENAI_API_KEY"),
+                azure_openai_api_version=self.credentials.get("AZURE_OPENAI_API_VERSION"),
+                openai_api_key=self.credentials.get("OPENAI_API_KEY"),
+                model=self.credentials.get("FAST_MODEL"),
+            )
+        else:
+            if options:
+                result = {"id": self.current_input}
+            else:
+                result = {"result": self.current_input}
         if options:
             result = result["id"]
             if result.isdigit():
@@ -461,10 +476,10 @@ class AbstractFSM(ABC):
         self.status = Status.MOVE_FORWARD
 
     def _create_on_enter_input_logic_method(
-        self, state_name, write_var, options, message, validation
+        self, state_name, write_var, options, message, validation, should_validate=True
     ):
         def dynamic_fn(self):
-            self._on_enter_input_logic(write_var, options, message, validation)
+            self._on_enter_input_logic(write_var, options, message, validation, should_validate)
 
         dynamic_fn.__name__ = f"on_enter_{state_name}"
         setattr(self.__class__, f"on_enter_{state_name}", dynamic_fn)
